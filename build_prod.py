@@ -88,6 +88,20 @@ def repo_init(cfg):
 def repo_sync():
     bash_run_command('repo sync -j8')
 
+def repo_checkout(cfg):
+    dir = cfg.get_dir_build()
+    listdir = list_directories(dir)
+    for folder in listdir:
+        if folder.startswith("meta"):
+            repo = git.Repo(folder)
+            os.chdir(folder)
+            bash_run_command('git fetch --all --tags --prune')
+            branches = repo.references
+            branch = cfg.get_opt_repo_branch()
+            if branches and branch in branches:
+                bash_run_command('git checkout ' + branch)
+            os.chdir(dir)
+
 
 def repo_populate_manifest_get_fname(cfg):
     return cfg.get_opt_product_type() + '.xml'
@@ -172,6 +186,8 @@ def build_populate_artifacts(cfg):
 def build_init(cfg):
     repo_init(cfg)
     repo_sync()
+    if cfg.get_opt_repo_branch():
+        repo_checkout(cfg)
     # create build dir and make initial setup
     yocto_run_command('')
     if cfg.get_opt_generate_local_conf():
