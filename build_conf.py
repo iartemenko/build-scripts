@@ -47,8 +47,16 @@ CFG_OPTION_WORKSPACE_DIR = "workspace_base_dir"
 CFG_OPTION_STORAGE_DIR = "workspace_storage_base_dir"
 CFG_OPTION_CACHE_DIR = "workspace_cache_base_dir"
 
+CFG_SECTION_CONF = "local_conf"
+XT_RCAR_EVAPROPRIETARY_DIR = "xt_proprietary_graphic_dir"
+XT_GUESTS_INSTALL = "xt_guests_install"
+XT_GUESTS_BUILD = "xt_guests_build"
+
 
 class BuildConf(object):
+    def get_uri_xt_graphic(self):
+        return self.__xt_graphic_uri
+
     def get_dir_build(self):
         return self.__workspace_base_dir
 
@@ -143,6 +151,12 @@ class BuildConf(object):
     def get_opt_repo_branch(self):
         return self.__args.repo_branch
 
+    def get_opt_guest_install(self):
+        return self.__xt_guests_install
+
+    def get_opt_guest_build(self):
+        return self.__xt_guests_build
+
     @staticmethod
     def setup_dir(path, remove=False, silent=False):
         # remove the existing one if any
@@ -221,6 +235,10 @@ class BuildConf(object):
         # URI of the git repo with build manifests
         self.__xt_manifest_uri = 'https://github.com/xen-troops/meta-xt-products.git'
 
+        self.__xt_graphic_uri = ''
+        self.__xt_guests_install = ''
+        self.__xt_guests_build = ''
+
         if self.__args.config_file:
             config = ConfigParser.ConfigParser()
             config.read(self.__args.config_file)
@@ -239,6 +257,15 @@ class BuildConf(object):
             uri = config.get(CFG_SECTION_GIT, CFG_OPTION_XT_MANIFEST, 1)
             if uri:
                 self.__xt_manifest_uri = uri
+            uri = config.get(CFG_SECTION_CONF, XT_RCAR_EVAPROPRIETARY_DIR, 1)
+            if uri:
+                self.__xt_graphic_uri = uri
+            domain = config.get(CFG_SECTION_CONF, XT_GUESTS_INSTALL, 1)
+            if domain:
+                self.__xt_guests_install = domain
+            domain = config.get(CFG_SECTION_CONF, XT_GUESTS_BUILD, 1)
+            if domain:
+                self.__xt_guests_build = domain
 
     def __init__(self):
         # get build arguments
