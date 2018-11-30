@@ -7,6 +7,8 @@ import ConfigParser
 
 # define build script version file name: this is created
 # in the deploy dir after successfull build
+from google.auth._helpers import datetime_to_secs
+
 VERSION_FNAME = 'build-system-version_1.0'
 
 '''
@@ -145,6 +147,18 @@ class BuildConf(object):
     def get_opt_local_conf(self):
         return self.__xt_local_conf_options
 
+    def get_opt_reconstr_date(self):
+        if self.__reconstr_date:
+            return self.__reconstr_date
+        else:
+            return None
+
+    def get_opt_reconstr_time(self):
+        if self.__reconstr_time:
+            return self.__reconstr_time
+        else:
+            return None
+
     @staticmethod
     def setup_dir(path, remove=False, silent=False):
         # remove the existing one if any
@@ -201,11 +215,11 @@ class BuildConf(object):
             parser.add_argument('--date',
                                 dest='reconstr_date', required=True,
                                 help='Date of the build to reconstruct',
-                                type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
+                                type=lambda d: datetime.datetime.strptime(d, '%Y-%m-%d'))
             parser.add_argument('--time',
                                 dest='reconstr_time', required=True,
                                 help='Time of the build to reconstruct',
-                                type=lambda d: datetime.strptime(d, '%H-%M-%S'))
+                                type=lambda d: datetime.datetime.strptime(d, '%H-%M-%S'))
         self.__args = parser.parse_args()
 
     @staticmethod
@@ -260,3 +274,6 @@ class BuildConf(object):
         BuildConf.setup_dir(self.get_dir_build(), not self.__args.continue_build)
         BuildConf.setup_dir(self.get_dir_storage())
         BuildConf.setup_dir(self.get_dir_yocto_sstate(), not self.__args.continue_build)
+        if self.get_opt_build_type() == TYPE_RECONSTR:
+            self.__reconstr_date = self.__args.reconstr_date.strftime('%Y-%m-%d')
+            self.__reconstr_time = self.__args.reconstr_time.strftime('%H-%M-%S')

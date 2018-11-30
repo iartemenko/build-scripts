@@ -169,39 +169,48 @@ def build_populate_artifacts(cfg):
               repo_populate_manifest_get_fname(cfg))
 
 
+def generate_local_conf(cfg, mf):
+    print('Generating local.conf')
+    f = open(os.path.join('build', 'conf', 'local.conf'), "w+t")
+    f.write('MACHINE = "' + cfg.get_opt_machine_type() + '"\n')
+    if not cfg.get_opt_parallel_build():
+        f.write('BB_NUMBER_THREADS = "1"\n')
+    f.write('DL_DIR = "' + cfg.get_dir_yocto_downloads() + '"\n')
+    f.write('DEPLOY_DIR = "' + cfg.get_dir_yocto_deploy() + '"\n')
+    f.write('BUILDHISTORY_DIR = "' + cfg.get_dir_yocto_buildhistory() + '"\n')
+    f.write('SSTATE_DIR = "' + cfg.get_dir_yocto_sstate() + '"\n')
+    f.write('XT_SSTATE_CACHE_MIRROR_DIR = "' + cfg.get_dir_yocto_sstate_mirror() + '"\n')
+    if cfg.get_opt_populate_cache():
+        f.write('XT_POPULATE_SSTATE_CACHE = "1"\n')
+    f.write('XT_SHARED_ROOTFS_DIR = "' + cfg.get_dir_yocto_shared_rootfs() + '"\n')
+    if cfg.get_opt_populate_sdk():
+        f.write('XT_POPULATE_SDK = "1"\n')
+    f.write('LOG_DIR = "' + cfg.get_dir_yocto_log() + '"\n')
+    f.write('XT_PRODUCT_NAME = "' + cfg.get_opt_product_type() + '"\n')
+    f.write('XT_RECONSTRUCT_DIR = "' + mf + '"\n')
+
+    if cfg.get_opt_local_conf():
+        for item in cfg.get_opt_local_conf():
+            f.write(item[0].upper() + ' = ' + item[1] + '\n')
+    f.close()
+
+
+def add_meta_layers(cfg):
+    bblayers_list = list_directories(cfg.get_dir_build())
+    for bblayer in bblayers_list:
+        if bblayer.startswith('meta-'):
+            yocto_add_bblayer(cfg, bblayer)
+
+
 def build_init(cfg):
     repo_init(cfg)
     repo_sync()
     # create build dir and make initial setup
     yocto_run_command('')
     if cfg.get_opt_generate_local_conf():
-        print('Generating local.conf')
-        f = open(os.path.join('build', 'conf', 'local.conf'), "w+t")
-        f.write('MACHINE = "' + cfg.get_opt_machine_type() + '"\n')
-        if not cfg.get_opt_parallel_build():
-            f.write('BB_NUMBER_THREADS = "1"\n')
-        f.write('DL_DIR = "' + cfg.get_dir_yocto_downloads() + '"\n')
-        f.write('DEPLOY_DIR = "' + cfg.get_dir_yocto_deploy() + '"\n')
-        f.write('BUILDHISTORY_DIR = "' + cfg.get_dir_yocto_buildhistory() + '"\n')
-        f.write('SSTATE_DIR = "' + cfg.get_dir_yocto_sstate() + '"\n')
-        f.write('XT_SSTATE_CACHE_MIRROR_DIR = "' + cfg.get_dir_yocto_sstate_mirror() + '"\n')
-        if cfg.get_opt_populate_cache():
-            f.write('XT_POPULATE_SSTATE_CACHE = "1"\n')
-        f.write('XT_SHARED_ROOTFS_DIR = "' + cfg.get_dir_yocto_shared_rootfs() + '"\n')
-        if cfg.get_opt_populate_sdk():
-            f.write('XT_POPULATE_SDK = "1"\n')
-        f.write('LOG_DIR = "' + cfg.get_dir_yocto_log() + '"\n')
-        f.write('XT_PRODUCT_NAME = "' + cfg.get_opt_product_type() +'"\n')
-
-        if cfg.get_opt_local_conf():
-            for item in cfg.get_opt_local_conf():
-                f.write(item[0].upper() + ' = ' + item[1] + '\n')
-        f.close()
+        generate_local_conf(cfg)
     # add meta layers
-    bblayers_list = list_directories(cfg.get_dir_build())
-    for bblayer in bblayers_list:
-        if bblayer.startswith('meta-'):
-            yocto_add_bblayer(cfg, bblayer)
+    add_meta_layers(cfg)
 
 
 def build_run(cfg):
@@ -241,6 +250,27 @@ def build_req(cfg):
 
 def build_reconstr(cfg):
     build_print_target(build_conf.TYPE_RECONSTR, cfg)
+    print('Reconstructing xt-image')
+    # repo init + sync
+    history_path = os.path.join(cfg.get_dir_build(), '.repo', 'manifests', 'dailybuild',
+                                cfg.get_opt_reconstr_date(), cfg.get_opt_product_type(),
+                                cfg.get_opt_machine_type(), cfg.get_opt_reconstr_time())
+    manifest_file = os.path.join('dailybuild', cfg.get_opt_reconstr_date(),
+                                 cfg.get_opt_product_type(), cfg.get_opt_machine_type(),
+                                 cfg.get_opt_reconstr_time(), cfg.get_opt_product_type() + '.xml')
+    os.chdir(cfg.get_dir_build())
+    bash_run_command('repo init -u %s -m %s' % (cfg.get_uri_xt_history(), manifest_file))
+    repo_sync()
+
+    yocto_run_command('')
+    generate_local_conf(cfg, history_path)
+    add_meta_layers(cfg)
+    if not (cfg.get_opt_do_build() or cfg.get_opt_continue_build()):
+        return
+    dirs = list_directories(os.path.dirname(os.path.join(cfg.get_dir_build(), '.repo', 'manifests', manifest_file)))
+    yocto_run_command('bitbake -c configure ' + 'domu-image-android')
+    print('Configure bitbake target done.')
+    # build_populate_artifacts(cfg)
 
 
 def main():
